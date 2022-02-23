@@ -1,0 +1,46 @@
+*{
+  margin: 0;
+  padding: 0;
+}
+
+#display {
+  position: absolute;
+  font-size: 20px;
+  width: 100%;
+  font-weight: 600;
+  color: black;
+  z-index: 100;
+  display: block;
+}
+
+#score {
+  margin: 10px;
+  margin-left: 20px;
+  text-align: left;
+  color: blue;
+  z-index: 100;
+}
+
+#treasure {
+  margin: 10px;
+  margin-left: 20px;
+  text-align: left;
+  color: yellow;
+  z-index: 100;
+}
+
+#health {
+  margin: 10px;
+  margin-left: 20px;
+  text-align: left;
+  color: green;
+  z-index: 100;
+}
+
+#time {
+  margin: 10px;
+  margin-left: 20px;
+  text-align: left;
+  color: red;
+  z-index: 100;
+}
