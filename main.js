@@ -11,18 +11,24 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 let camera, scene, renderer;
 let controls, water, sun;
 
+let gameOver = false;
+
 let thirdperson = true;
 
 var _score = 0, _treasure = 0, _health = 100, _time = 0;
 
-let treasures = []
+var treasures = []
 const treasures_count = 5;
 
 var enemies = []
-const enemies_count = 3;
+const enemies_count = 5;
 
 var playerbullets = []
+
 var enemybullets = []
+
+let canFire = true
+var tempTime = 0;
 
 function display() {
   document.getElementById("score").innerHTML = "Total Score: " + _score;
@@ -47,7 +53,7 @@ class Ship {
 
       gltf.scene.position.set(0, 0, 0)
       gltf.scene.scale.set(1, 1, 1)
-      gltf.scene.rotation.y = Math.PI;
+      gltf.scene.rotation.y = 0;
       this.ship = gltf.scene
       this.motion = {
         speed: 0,
@@ -82,7 +88,11 @@ async function loadModel(url) {
 //spawn treasure relative to the ship
 class Treasure {
   constructor(_scene) {
-    _scene.position.set(randomnumber(-200, 200), 0, randomnumber(-300, 0) - 100)
+    let shipX = 0
+    if (ship.ship) {
+      shipX = ship.ship.position.x
+    }
+    _scene.position.set(shipX + randomnumber(-200, 200), 0, randomnumber(0, 300) + 100)
     _scene.scale.set(0.03, 0.03, 0.03)
     scene.add(_scene)
     //add a remove boolean to the treasure
@@ -103,16 +113,22 @@ async function spawntreasure() {
 
 class Enemy {
   constructor(_scene) {
-    _scene.position.set(randomnumber(-200, 200), 0, -400)
-    _scene.scale.set(0.02, 0.02, 0.02)
+    let shipX = 0
+    if (ship.ship) {
+      shipX = ship.ship.position.x
+    }
+    _scene.position.set(shipX + randomnumber(-200, 200), 5, 400 + randomnumber(0, 300))
+    _scene.scale.set(0.015, 0.015, 0.015)
     scene.add(_scene)
     this.enemy = _scene
 
     //speed and rotation
     this.motion = {
-      speed: 1,
+      speed: -1,
       rotate: 0
     }
+    this.remove = false;
+    this.health = 100;
 
   }
   update() {
@@ -154,10 +170,9 @@ async function init() {
   scene = new THREE.Scene();
 
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
-  camera.position.set(0, 30, 100);
+  camera.position.set(0, 50, -100);
 
   //
-
   sun = new THREE.Vector3();
 
   // Water
@@ -187,7 +202,6 @@ async function init() {
   scene.add(water);
 
   // Skybox
-
   const sky = new Sky();
   sky.scale.setScalar(10000);
   scene.add(sky);
@@ -262,9 +276,30 @@ async function init() {
     if (e.key == "a") {
       ship.motion.rotate = 0.1
     }
-    //space
+    // Bullet
     if (e.key == " ") {
-      ship.stop()
+      console.log("Fire")
+      var bullet = new THREE.Mesh(
+        new THREE.SphereGeometry(2, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffd700 })
+      )
+      bullet.position.set(ship.ship.position.x, ship.ship.position.y + 5, ship.ship.position.z + 5)
+
+      bullet.velocity = new THREE.Vector3(
+        Math.sin(bullet.rotation.y) * 3,
+        0,
+        Math.cos(bullet.rotation.y) * 3
+      )
+      bullet.alive = true
+      setTimeout(function () {
+        bullet.alive = false
+        scene.remove(bullet)
+      }, 10000)
+
+      //add it to the array
+      playerbullets.push(bullet)
+
+      scene.add(bullet)
     }
     if (e.key == "c") {
       thirdperson = !thirdperson
@@ -272,33 +307,112 @@ async function init() {
   })
 
   window.addEventListener('keyup', function (e) {
-    ship.stop();
+    if (e.key == "w") {
+      ship.motion.speed = 0
+    }
+    if (e.key == "s") {
+      ship.motion.speed = 0
+    }
+    if (e.key == "d") {
+      ship.motion.rotate = 0
+    }
+    if (e.key == "a") {
+      ship.motion.rotate = 0
+    }
+
   })
 
 }
 
 function onWindowResize() {
-
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
 
   renderer.setSize(window.innerWidth, window.innerHeight);
-
 }
 
 function animate() {
-
-  requestAnimationFrame(animate);
+  if (!gameOver) requestAnimationFrame(animate);
   render();
+
+  if (_health <= 0) {
+    gameOver = true
+    document.getElementById("over").innerHTML = "Game Over"
+    //button to reload page and play again
+    // document.getElementById("reload").innerHTML = "Reload"
+    // document.getElementById("reload").style.display = "block"
+    // document.getElementById("reload").addEventListener("click", function(){
+    //   location.reload()
+    // }
+    // )
+  }
   ship.update();
+  //update all enemy ships
+  enemies.forEach(enemy => {
+    enemy.update()
+  })
+
+  for (var index = 0; index < playerbullets.length; index++) {
+    if (playerbullets[index] == undefined) continue;
+    if (playerbullets[index].alive == false) {
+      // scene.remove(bullets[index])
+      playerbullets.splice(index, 1)
+      continue
+    }
+
+    playerbullets[index].position.add(playerbullets[index].velocity)
+  }
+  //Enemy bullets every 3 seconds
+  if (tempTime != Math.floor(_time) && enemies.length > 0) {
+    tempTime = Math.floor(_time)
+    var enemybullet = new THREE.Mesh(
+      new THREE.SphereGeometry(2, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    )
+    var enemyIndex = randomnumber(0, enemies_count - 1)
+    enemyIndex = Math.floor(enemyIndex)
+    // console.log(enemyIndex)
+    // console.log(enemies[enemyIndex])
+    if (enemies[enemyIndex] != undefined && enemies[enemyIndex].remove == false) {
+      enemybullet.position.set(enemies[enemyIndex].enemy.position.x, enemies[enemyIndex].enemy.position.y + 5, enemies[enemyIndex].enemy.position.z + 5)
+    }
+    enemybullet.velocity = new THREE.Vector3(
+      0,
+      0,
+      -3
+    )
+
+    enemybullet.alive = true
+    setTimeout(function () {
+      enemybullet.alive = false
+      scene.remove(enemybullet)
+    }, 10000)
+
+    enemybullets.push(enemybullet)
+    scene.add(enemybullet)
+  }
+
+  for (var index = 0; index < enemybullets.length; index++) {
+    if (enemybullets[index] == undefined) continue;
+    if (enemybullets[index].alive == false) {
+      // scene.remove(bullets[index])
+      enemybullets.splice(index, 1)
+      continue
+    }
+
+    enemybullets[index].position.add(enemybullets[index].velocity)
+  }
 
   //make camera follow ship
   // thirdperson && bird eye view
   if (thirdperson) {
-    camera.lookAt(ship.ship.position)
-    camera.position.z = ship.ship.position.z + 100;
-    camera.position.y = ship.ship.position.y + 30;
-    camera.position.x = ship.ship.position.x;
+    //wait for ship to load
+    if (ship.ship != undefined) {
+      camera.lookAt(ship.ship.position.x, ship.ship.position.y, ship.ship.position.z + 50)
+      camera.position.z = ship.ship.position.z - 80;
+      camera.position.y = ship.ship.position.y + 70;
+      camera.position.x = ship.ship.position.x;
+    }
   }
   else {
     //make the camera look at the ship but not turn with the ship
@@ -306,9 +420,11 @@ function animate() {
     camera.rotation.y = Math.PI * 2;
     camera.rotation.x = Math.PI * -0.5;
     //Keep the ship at the center of the screen
-    camera.position.z = ship.ship.position.z;
-    camera.position.y = ship.ship.position.y + 300;
-    camera.position.x = ship.ship.position.x;
+    if (ship.ship != undefined) {
+      camera.position.z = ship.ship.position.z;
+      camera.position.y = ship.ship.position.y + 300;
+      camera.position.x = ship.ship.position.x;
+    }
   }
 
   // Update time
@@ -317,17 +433,35 @@ function animate() {
   _health = Math.max(0, _health);
 
   collecttreasure();
+  shipcollison();
+  bullethit();
 
   //If treasure's z position is greater than the camera's z position, remove it and spawn a new one
   treasures.forEach(treasure => {
     if (treasure.treasure) {
-      if (treasure.treasure.position.z > camera.position.z) {
-        treasure.treasure.position.z -= 400;
-        treasure.treasure.position.x = randomnumber(-200, 200);
+      if (treasure.treasure.position.z < camera.position.z - 150) {
+        treasure.treasure.position.z += randomnumber(600, 1800);
+        treasure.treasure.position.x = randomnumber(-200, 200) + ship.ship.position.x;
         //add it back to scene if removed
-        if (treasure.treasure.remove)
+        if (treasure.treasure.remove) {
           scene.add(treasure.treasure);
+          treasure.treasure.remove = false;
+        }
       }
+    }
+  })
+  //If enemy's z position is greater than the camera's z position, remove it and spawn a new one
+  enemies.forEach(enemy => {
+    if (enemy.enemy) {
+      if (enemy.enemy.position.z < camera.position.z - 150) {
+        enemy.enemy.position.z += randomnumber(600, 1800);
+        enemy.enemy.position.x = randomnumber(-200, 200) + ship.ship.position.x;
+        if (enemy.enemy.remove) {
+          scene.add(enemy.enemy);
+          enemy.enemy.remove = false;
+        }
+      }
+
     }
   })
 
@@ -336,7 +470,6 @@ function animate() {
 }
 
 function render() {
-
   const time = performance.now() * 0.001;
 
   water.material.uniforms['time'].value += 1.0 / 60.0;
@@ -351,6 +484,46 @@ function collisionTrue(a, b) {
     Math.abs(a.position.y - b.position.y) < 20 &&
     Math.abs(a.position.z - b.position.z) < 20
   )
+}
+
+function bullethit() {
+  if (ship.ship) {
+    for (var index = 0; index < enemybullets.length; index++) {
+      // console.log(enemybullets[index])
+      if (enemybullets[index] == undefined) continue;
+      if (enemybullets[index].alive == false) continue;
+      console.log(collisionTrue(ship.ship, enemybullets[index]))
+      if (collisionTrue(ship.ship, enemybullets[index])) {
+        console.log("hit")
+        _health -= 10;
+        enemybullets[index].alive = false;
+        scene.remove(enemybullets[index])
+        enemybullets.splice(index, 1)
+      }
+    }
+
+    for (var index = 0; index < playerbullets.length; index++) {
+      // console.log(enemybullets[index])
+      if (playerbullets[index] == undefined) continue;
+      if (playerbullets[index].alive == false) continue;
+
+      for (var index2 = 0; index2 < enemies.length; index2++) {
+        if (enemies[index2] == undefined) continue;
+        if (enemies[index2].enemy.remove == true) continue;
+        if (collisionTrue(playerbullets[index], enemies[index2].enemy)) {
+          console.log("hit")
+
+          playerbullets[index].alive = false;
+          scene.remove(playerbullets[index])
+          playerbullets.splice(index, 1)
+          enemies[index2].enemy.remove = true;
+          scene.remove(enemies[index2].enemy)
+
+          _score += 20;
+        }
+      }
+    }
+  }
 }
 
 function collecttreasure() {
@@ -370,4 +543,61 @@ function collecttreasure() {
       }
     })
   }
+}
+
+function shipcollison() {
+  if (ship.ship) {
+    enemies.forEach(enemy => {
+      if (enemy.enemy) {
+        if (collisionTrue(ship.ship, enemy.enemy)) {
+          if (!enemy.remove) {
+            _health -= 10;
+            enemy.remove = true;
+            scene.remove(enemy.enemy)
+          }
+        }
+      }
+    })
+  }
+}
+
+
+function gameLost() {
+  //Print game over in the middle of the screen
+  var text = new THREE.Mesh(
+    new THREE.TextGeometry("Game Over", {
+      font: font,
+      size: 80,
+      height: 5,
+      curveSegments: 12,
+      bevelEnabled: true,
+      bevelThickness: 10,
+      bevelSize: 8,
+      bevelSegments: 5
+    }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  );
+  text.position.x = 0;
+  text.position.y = 0;
+  text.position.z = -100;
+  scene.add(text);
+
+  //Print score in the middle of the screen
+  var text = new THREE.Mesh(
+    new THREE.TextGeometry("Score: " + _score, {
+      font: font,
+      size: 80,
+      height: 5,
+      curveSegments: 12,
+      bevelEnabled: true,
+      bevelThickness: 10,
+      bevelSize: 8,
+      bevelSegments: 5
+    }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  );
+  text.position.x = 0;
+  text.position.y = -100;
+  text.position.z = -100;
+  scene.add(text);
 }
