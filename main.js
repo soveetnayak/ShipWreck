@@ -18,7 +18,7 @@ let thirdperson = true;
 var _score = 0, _treasure = 0, _health = 100, _time = 0;
 
 var treasures = []
-const treasures_count = 5;
+const treasures_count = 7;
 
 var enemies = []
 const enemies_count = 5;
@@ -346,6 +346,11 @@ function animate() {
     // }
     // )
   }
+  if(Math.floor(_time) == 60)
+  {
+    gameOver = true
+    document.getElementById("over").innerHTML = "Game Finished"
+  }
   ship.update();
   //update all enemy ships
   enemies.forEach(enemy => {
@@ -443,10 +448,20 @@ function animate() {
         treasure.treasure.position.z += randomnumber(600, 1800);
         treasure.treasure.position.x = randomnumber(-200, 200) + ship.ship.position.x;
         //add it back to scene if removed
-        if (treasure.treasure.remove) {
+        if (treasure.remove) {
           scene.add(treasure.treasure);
-          treasure.treasure.remove = false;
+          treasure.remove = false;
         }
+      }
+      else if (treasure.treasure.position.x > camera.position.x + 400 || treasure.treasure.position.x < camera.position.x - 400)
+      {
+        treasure.treasure.position.x = randomnumber(-200, 200) + ship.ship.position.x;
+        //add it back to scene if removed
+        if (treasure.remove) {
+          scene.add(treasure.treasure);
+          treasure.remove = false;
+        }
+
       }
     }
   })
@@ -456,9 +471,10 @@ function animate() {
       if (enemy.enemy.position.z < camera.position.z - 150) {
         enemy.enemy.position.z += randomnumber(600, 1800);
         enemy.enemy.position.x = randomnumber(-200, 200) + ship.ship.position.x;
-        if (enemy.enemy.remove) {
+
+        if (enemy.remove) {
           scene.add(enemy.enemy);
-          enemy.enemy.remove = false;
+          enemy.remove = false;
         }
       }
 
@@ -509,14 +525,14 @@ function bullethit() {
 
       for (var index2 = 0; index2 < enemies.length; index2++) {
         if (enemies[index2] == undefined) continue;
-        if (enemies[index2].enemy.remove == true) continue;
+        if (enemies[index2].remove == true) continue;
         if (collisionTrue(playerbullets[index], enemies[index2].enemy)) {
           console.log("hit")
 
           playerbullets[index].alive = false;
           scene.remove(playerbullets[index])
           playerbullets.splice(index, 1)
-          enemies[index2].enemy.remove = true;
+          enemies[index2].remove = true;
           scene.remove(enemies[index2].enemy)
 
           _score += 20;
