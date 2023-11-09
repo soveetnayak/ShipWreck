@@ -1,10 +1,5 @@
 # ShipWreck
 
-## Assignment 2
-## Computer Graphics
-
-### Soveet Kumar Nayak
-
 To run:
 ```
 npm run dev
